@@ -101,11 +101,15 @@ def download():
 # -------- STATUS --------
 @app.route("/status")
 def status():
-    if time.time() - last_seen < 15:
-        return jsonify({"status": "Connected"})
-    else:
-        return jsonify({"status": "Disconnected"})
+    global last_seen
 
+    try:
+        if time.time() - last_seen < 15:
+            return jsonify({"status": "Connected"})
+        else:
+            return jsonify({"status": "Disconnected"})
+    except:
+        return jsonify({"status": "Checking"})
 
 # -------- CONTROL --------
 @app.route("/start")
