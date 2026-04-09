@@ -41,7 +41,7 @@ def receive():
         with open(DATA_FILE, "r") as f:
             rows = list(csv.DictReader(f))
 
-        # Duplicate check
+        # duplicate check
         for r in rows:
             if r["time"] == now and r["sensor1"] == s1:
                 return "Duplicate"
@@ -54,14 +54,22 @@ def receive():
 
         return "OK"
 
-    except Exception as e:
+    except:
         return "Error", 500
-#........fullview
+
+
+# -------- VIEW MODES --------
+@app.route("/api/reset")
+def reset_view():
+    global view_mode
+    view_mode = "live"
+    return "OK"
+
 @app.route("/api/fullview")
 def full_view():
     global view_mode
     view_mode = "full"
-    return "Full View Enabled"
+    return "OK"
 
 
 # -------- GET DATA --------
@@ -73,32 +81,22 @@ def all_data():
         with open(DATA_FILE, "r") as f:
             rows = list(csv.DictReader(f))
 
+        rows.reverse()   # latest first
+
         if view_mode == "live":
-            return jsonify(rows[-50:])
+            return jsonify(rows[:50])   # latest 50
         else:
-            return jsonify(rows)
+            return jsonify(rows)       # full
 
     except:
         return jsonify([])
 
-# -------- FULL VIEW --------
-@app.route("/api/full")
-def full_data():
-    global view_mode
-    view_mode = "full"
-    return all_data()
-
-# -------- RESET VIEW --------
-#@app.route("/api/reset")
-#def reset_view():
-   # global view_mode
-    #view_mode = "live"
-    #return "Reset Done"
 
 # -------- DOWNLOAD --------
 @app.route("/download")
 def download():
     return send_file(DATA_FILE, as_attachment=True)
+
 
 # -------- STATUS --------
 @app.route("/status")
@@ -107,6 +105,7 @@ def status():
         return jsonify({"status": "Connected"})
     else:
         return jsonify({"status": "Disconnected"})
+
 
 # -------- CONTROL --------
 @app.route("/start")
@@ -121,6 +120,7 @@ def stop():
     collect_data = False
     return "Stopped"
 
+
 # -------- COMMAND SYSTEM --------
 @app.route("/api/cmd")
 def get_cmd():
@@ -128,6 +128,7 @@ def get_cmd():
     cmd = latest_cmd
     latest_cmd = ""
     return cmd
+
 
 # -------- QUERY --------
 @app.route("/query")
@@ -159,22 +160,6 @@ def query():
 
             return "Deleted (Server)"
 
-        # SEARCH
-        elif parts[0].lower() == "search" and len(parts) == 3:
-            start = int(parts[1])
-            end = int(parts[2])
-
-            with open(DATA_FILE, "r") as f:
-                rows = list(csv.DictReader(f))
-
-            result = [r for r in rows if start <= int(r["id"]) <= end]
-            return jsonify(result)
-
-        # SHOW ALL
-        elif parts[0].lower() == "all":
-            with open(DATA_FILE, "r") as f:
-                return jsonify(list(csv.DictReader(f)))
-
         # CLEAR SD
         elif parts[0].lower() == "clear_sd":
             latest_cmd = "CLEAR_SD"
@@ -183,7 +168,7 @@ def query():
         # SYNC SD
         elif parts[0].lower() == "sync_sd":
             latest_cmd = "SYNC"
-            return "SD Sync Started"
+            return "Sync started"
 
         else:
             return "Unknown Command"
@@ -191,10 +176,12 @@ def query():
     except Exception as e:
         return "Error: " + str(e)
 
+
 # -------- HOME --------
 @app.route("/")
 def home():
     return render_template("index.html")
+
 
 # -------- RUN --------
 if __name__ == "__main__":
