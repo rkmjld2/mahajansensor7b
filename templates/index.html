@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sensor Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { font-family: Arial; padding:20px; }
+table, th, td { border:1px solid black; border-collapse:collapse; padding:5px; }
+button { margin:5px; }
+input { margin:5px; }
+</style>
+</head>
+
+<body>
+
+<h2>Sensor Dashboard</h2>
+
+Status: <span id="status">Checking...</span>
+
+<br><br>
+
+<button onclick="start()">Start</button>
+<button onclick="stop()">Stop</button>
+<button onclick="syncSD()">Load Full SD Data</button>
+<button onclick="resetView()">Reset View</button>
+<button onclick="downloadCSV()">Download CSV</button>
+
+<hr>
+
+<h3>🔍 Search</h3>
+
+<!-- ID RANGE -->
+ID From: <input type="number" id="idFrom">
+ID To: <input type="number" id="idTo">
+<button onclick="searchByID()">Search ID</button>
+
+<br><br>
+
+<!-- DATE RANGE -->
+Start Date: <input type="date" id="startDate">
+End Date: <input type="date" id="endDate">
+<button onclick="searchByDate()">Search Date</button>
+
+<br>
+
+<button onclick="showAll()">Show All</button>
+<button onclick="showGraph()">Show Graph</button>
+
+<hr>
+
+<h3>Command Box</h3>
+<input type="text" id="cmd" placeholder="delete 10 20 | clear_sd | sync_sd">
+<button onclick="runQuery()">Run</button>
+
+<p id="queryResult"></p>
+
+<hr>
+
+<h3>📊 Graph</h3>
+<canvas id="chart"></canvas>
+
+<hr>
+
+<table>
+<thead>
+<tr>
+<th>ID</th><th>S1</th><th>S2</th><th>S3</th><th>Time</th>
+</tr>
+</thead>
+<tbody id="data"></tbody>
+</table>
+
+<script>
+
+let chart;
+let fullData = [];
+let filteredData = [];
+
+async function loadData(){
+    let res = await fetch('/api/all');
+    fullData = await res.json();
+    filteredData = fullData;
+    displayData(fullData);
+}
+
+function displayData(data){
+    let html="";
+    data.forEach(r=>{
+        html += `<tr>
+        <td>${r.id}</td>
+        <td>${r.sensor1}</td>
+        <td>${r.sensor2}</td>
+        <td>${r.sensor3}</td>
+        <td>${r.time}</td>
+        </tr>`;
+    });
+    document.getElementById("data").innerHTML = html;
+}
+
+function drawGraph(data){
+
+    let labels = data.map(r => r.id);
+    let s1 = data.map(r => r.sensor1);
+    let s2 = data.map(r => r.sensor2);
+    let s3 = data.map(r => r.sensor3);
+
+    if(chart) chart.destroy();
+
+    chart = new Chart(document.getElementById("chart"), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {label:"S1", data:s1},
+                {label:"S2", data:s2},
+                {label:"S3", data:s3}
+            ]
+        }
+    });
+}
+
+// -------- SEARCH ID --------
+function searchByID(){
+    let from = parseInt(document.getElementById("idFrom").value);
+    let to = parseInt(document.getElementById("idTo").value);
+
+    filteredData = fullData.filter(r => r.id >= from && r.id <= to);
+
+    displayData(filteredData);
+}
+
+// -------- SEARCH DATE RANGE --------
+function searchByDate(){
+    let start = document.getElementById("startDate").value;
+    let end = document.getElementById("endDate").value;
+
+    filteredData = fullData.filter(r => {
+        let d = r.time.substring(0,10);
+        return d >= start && d <= end;
+    });
+
+    displayData(filteredData);
+}
+
+// -------- SHOW ALL --------
+function showAll(){
+    filteredData = fullData;
+    displayData(fullData);
+}
+
+// -------- GRAPH BUTTON --------
+function showGraph(){
+    drawGraph(filteredData);
+}
+
+// -------- COMMAND --------
+async function runQuery(){
+    let cmd = document.getElementById("cmd").value;
+    let res = await fetch('/query?cmd=' + cmd);
+    let text = await res.text();
+    document.getElementById("queryResult").innerText = text;
+    loadData();
+}
+
+// -------- SYNC --------
+async function syncSD(){
+    alert("Sync started... wait 15 sec");
+    await fetch('/query?cmd=sync_sd');
+    setTimeout(loadData,15000);
+}
+
+// -------- RESET --------
+async function resetView(){
+    await fetch('/api/reset');
+    loadData();
+}
+
+// -------- BASIC --------
+function start(){ fetch('/start'); }
+function stop(){ fetch('/stop'); }
+function downloadCSV(){ window.location.href="/download"; }
+
+async function checkStatus(){
+    let res = await fetch('/status');
+    let data = await res.json();
+    document.getElementById("status").innerText = data.status;
+}
+
+setInterval(loadData,5000);
+setInterval(checkStatus,5000);
+
+loadData();
+checkStatus();
+
+</script>
+
+</body>
+</html>
