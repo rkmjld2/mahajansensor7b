@@ -29,6 +29,16 @@ Status: <span id="status">Checking...</span>
 
 <hr>
 
+<!-- ✅ COMMAND BOX ADDED -->
+<h3>⚙️ Command Box</h3>
+
+<input type="text" id="cmd" placeholder="CLEAR_SD or DELETE 100,200" style="width:300px;">
+<button onclick="runCommand()">Run</button>
+
+<p id="cmdResult"></p>
+
+<hr>
+
 <h3>🔍 Search</h3>
 
 ID From: <input type="number" id="idFrom">
@@ -146,10 +156,25 @@ function showGraph(){
     drawGraph(filteredData);
 }
 
+// ✅ COMMAND FUNCTION
+async function runCommand(){
+    let cmd = document.getElementById("cmd").value;
+
+    if(!cmd){
+        alert("Enter command");
+        return;
+    }
+
+    let res = await fetch('/sendcmd?cmd=' + cmd);
+    let text = await res.text();
+
+    document.getElementById("cmdResult").innerText = text;
+}
+
 // SYNC
 async function syncSD(){
     status.innerText = "Sync in progress...";
-    await fetch('/query?cmd=sync_sd');
+    await fetch('/sendcmd?cmd=SYNC');
 
     setTimeout(async ()=>{
         await showFullData();
@@ -186,9 +211,6 @@ async function checkStatus(){
         document.getElementById("status").innerText = "Checking";
     }
 }
-
-    
-
 
 setInterval(loadData,5000);
 setInterval(checkStatus,5000);
