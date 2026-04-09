@@ -56,6 +56,13 @@ def receive():
 
     except Exception as e:
         return "Error", 500
+#........fullview
+@app.route("/api/fullview")
+def full_view():
+    global view_mode
+    view_mode = "full"
+    return "Full View Enabled"
+
 
 # -------- GET DATA --------
 @app.route("/api/all")
