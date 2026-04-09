@@ -178,10 +178,17 @@ function downloadCSV(){ window.location.href="/download"; }
 
 // STATUS
 async function checkStatus(){
-    let res = await fetch('/status');
-    let data = await res.json();
-    status.innerText = data.status;
+    try{
+        let res = await fetch('/status');
+        let data = await res.json();
+        document.getElementById("status").innerText = data.status;
+    }catch{
+        document.getElementById("status").innerText = "Checking";
+    }
 }
+
+    
+
 
 setInterval(loadData,5000);
 setInterval(checkStatus,5000);
