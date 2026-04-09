@@ -129,11 +129,31 @@ def stop():
 
 
 # -------- COMMAND SYSTEM --------
+# -------- COMMAND SYSTEM --------
+last_command = ""
+
+@app.route("/sendcmd")
+def sendcmd():
+    global last_command
+
+    cmd = request.args.get("cmd")
+
+    if not cmd:
+        return "No command"
+
+    last_command = cmd.strip()
+    print("Command received from web:", last_command)
+
+    return "Command Sent: " + last_command
+
+
 @app.route("/api/cmd")
 def get_cmd():
-    global latest_cmd
-    cmd = latest_cmd
-    latest_cmd = ""
+    global last_command
+
+    cmd = last_command
+    last_command = ""   # clear after sending
+
     return cmd
 
 
