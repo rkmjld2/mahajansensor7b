@@ -29,34 +29,40 @@ def receive():
 
     last_seen = time.time()
 
-    if not collect_data:
-        return "Stopped"
-
     try:
+        id_val = request.args.get("id")
         s1 = request.args.get("s1")
         s2 = request.args.get("s2")
         s3 = request.args.get("s3")
         now = request.args.get("time")
 
+        if not (id_val and s1 and s2 and s3 and now):
+            return "Missing Data", 400
+
+        # -------- READ EXISTING --------
         with open(DATA_FILE, "r") as f:
             rows = list(csv.DictReader(f))
 
-        # duplicate check
+        # -------- DUPLICATE CHECK (SOFT) --------
         for r in rows:
-            if r["time"] == now and r["sensor1"] == s1:
-                return "Duplicate"
+            if r["time"] == now:
+                return "Duplicate OK"   # ⭐ NO ERROR
 
-        new_id = int(rows[-1]["id"]) + 1 if rows else 1
+        # -------- USE SAME ID (FOR SYNC) --------
+        new_id = id_val
 
+        # -------- SAVE --------
         with open(DATA_FILE, "a", newline="") as f:
             writer = csv.writer(f)
             writer.writerow([new_id, s1, s2, s3, now])
 
+        print("Saved:", new_id)
+
         return "OK"
 
-    except:
+    except Exception as e:
+        print("Error:", e)
         return "Error", 500
-
 
 # -------- VIEW MODES --------
 @app.route("/api/reset")
