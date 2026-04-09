@@ -171,11 +171,14 @@ async function syncSD(){
 }
 
 // -------- RESET --------
-async function resetView(){
-    await fetch('/api/reset');
+//async function resetView(){
+   // await fetch('/api/reset');
+   // loadData();
+//}
+async function showFullData(){
+    await fetch('/api/fullview');
     loadData();
 }
-
 // -------- BASIC --------
 function start(){ fetch('/start'); }
 function stop(){ fetch('/stop'); }
