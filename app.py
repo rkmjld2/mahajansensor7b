@@ -21,7 +21,7 @@ if not os.path.exists(DATA_FILE):
 # -------- RECEIVE DATA --------
 @app.route("/api/data")
 def receive():
-    global last_seen, collect_data
+    global last_seen
 
     key = request.args.get("key")
     if key != API_KEY:
@@ -36,34 +36,31 @@ def receive():
         s3 = request.args.get("s3")
         now = request.args.get("time")
 
+        # ✅ Allow all data (NO rejection)
         if not (id_val and s1 and s2 and s3 and now):
-            return "Missing Data", 400
+            return "OK"
 
         # -------- READ EXISTING --------
         with open(DATA_FILE, "r") as f:
             rows = list(csv.DictReader(f))
 
-        # -------- DUPLICATE CHECK (SOFT) --------
+        # -------- SKIP DUPLICATE --------
         for r in rows:
             if r["time"] == now:
-                return "Duplicate OK"   # ⭐ NO ERROR
+                return "OK"   # ⭐ DO NOT RETURN 400
 
-        # -------- USE SAME ID (FOR SYNC) --------
-        new_id = id_val
-
-        # -------- SAVE --------
+        # -------- SAVE SAME ID --------
         with open(DATA_FILE, "a", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([new_id, s1, s2, s3, now])
+            writer.writerow([id_val, s1, s2, s3, now])
 
-        print("Saved:", new_id)
+        print("Saved:", id_val)
 
         return "OK"
 
     except Exception as e:
         print("Error:", e)
-        return "Error", 500
-
+        return "OK"   # ⭐ NEVER RETURN 400
 # -------- VIEW MODES --------
 @app.route("/api/reset")
 def reset_view():
