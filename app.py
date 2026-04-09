@@ -89,11 +89,11 @@ def full_data():
     return all_data()
 
 # -------- RESET VIEW --------
-@app.route("/api/reset")
-def reset_view():
-    global view_mode
-    view_mode = "live"
-    return "Reset Done"
+#@app.route("/api/reset")
+#def reset_view():
+   # global view_mode
+    #view_mode = "live"
+    #return "Reset Done"
 
 # -------- DOWNLOAD --------
 @app.route("/download")
