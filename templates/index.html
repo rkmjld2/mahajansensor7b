@@ -147,19 +147,23 @@ function searchByDate(){
 
     mode = "search";
 
-    let start = startDate.value;
-    let end = endDate.value;
+    let start = document.getElementById("startDate").value;
+    let end = document.getElementById("endDate").value;
+
+    if(!start || !end){
+        alert("Select start and end date with time");
+        return;
+    }
 
     filteredData = fullData.filter(r=>{
-        let d = r.time.substring(0,10);
-        return d >= start && d <= end;
+        let recordTime = r.time.replace(" ", "T"); // convert to datetime format
+        return recordTime >= start && recordTime <= end;
     });
 
     displayData(filteredData);
 
-    status.innerText = "Search (Date)";
+    status.innerText = "Search (Date & Time)";
 }
-
 // SHOW ALL
 function showAll(){
     mode = "search";
