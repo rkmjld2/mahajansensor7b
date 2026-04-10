@@ -1,193 +1,269 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>ESP8266 Sensor Dashboard</title>
-
+<title>Sensor Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { font-family: Arial; text-align: center; }
-button { padding: 8px; margin: 5px; }
-input { padding: 5px; margin: 5px; }
-canvas { max-width: 90%; }
+body { font-family: Arial; padding:20px; }
+table, th, td { border:1px solid black; border-collapse:collapse; padding:5px; }
+button { margin:5px; }
+input { margin:5px; }
 </style>
-
 </head>
 
 <body>
 
-<h2>ESP8266 Sensor Dashboard</h2>
+<h2>Sensor Dashboard</h2>
+
+Status: <span id="status">Checking...</span>
+
+<br><br>
 
 <button onclick="start()">Start</button>
 <button onclick="stop()">Stop</button>
-<button onclick="loadAll()">Load Full SD Data</button>
+<button onclick="syncSD()">Load Full SD Data</button>
 <button onclick="resetView()">Reset View</button>
+<button onclick="showFullData()">Show Full Data</button>
 <button onclick="downloadCSV()">Download CSV</button>
 
-<h3 id="status">Status: Checking...</h3>
+<hr>
 
-<h3>Search by Date</h3>
-<input type="datetime-local" id="start">
-<input type="datetime-local" id="end">
-<button onclick="search()">Search</button>
+<h3>⚙️ Command Box</h3>
 
-<h3>Graph</h3>
-<select id="chartType" onchange="drawChart()">
-<option value="line">Line</option>
-<option value="bar">Bar</option>
-</select>
+<input type="text" id="cmd" placeholder="CLEAR_SD or DELETE 100,200" style="width:300px;">
+<button onclick="runCommand()">Run</button>
 
-<canvas id="myChart"></canvas>
+<p id="cmdResult"></p>
+
+<hr>
+
+<h3>🔍 Search</h3>
+
+ID From: <input type="number" id="idFrom">
+ID To: <input type="number" id="idTo">
+<button onclick="searchByID()">Search ID</button>
+
+<br><br>
+
+Start Date: <input type="date" id="startDate">
+End Date: <input type="date" id="endDate">
+<button onclick="searchByDate()">Search Date</button>
+
+<br>
+
+<button onclick="showAll()">Show All</button>
+<button onclick="showGraph()">Show Graph</button>
+
+<hr>
+
+<h3>📊 Graph</h3>
+<canvas id="chart"></canvas>
+
+<hr>
+
+<table>
+<thead>
+<tr>
+<th>ID</th><th>S1</th><th>S2</th><th>S3</th><th>Time</th>
+</tr>
+</thead>
+<tbody id="data"></tbody>
+</table>
 
 <script>
 
-let autoRefresh = true;
-let currentData = [];
-let viewMode = "live"; // live | sd | search
+let chart;
+let fullData = [];
+let filteredData = [];
 
-// -------- TIME FIX --------
-function formatTime(t){
-    return t; // no conversion
-}
+// ✅ NEW CONTROL FLAG
+let mode = "live"; // live | sd | search
 
-// -------- LOAD LIVE DATA --------
+// LOAD DATA (ONLY IN LIVE MODE)
 async function loadData(){
 
-    if(!autoRefresh || viewMode !== "live") return;
+    if(mode !== "live") return;
 
-    let res = await fetch('/data');
-    let data = await res.json();
-
-    currentData = data;
-    drawChart();
+    let res = await fetch('/api/all');
+    fullData = await res.json();
+    filteredData = fullData;
+    displayData(fullData);
 }
 
-// -------- DRAW GRAPH --------
-function drawChart(){
+// DISPLAY TABLE
+function displayData(data){
+    let html="";
+    data.forEach(r=>{
+        html += `<tr>
+        <td>${r.id}</td>
+        <td>${r.sensor1}</td>
+        <td>${r.sensor2}</td>
+        <td>${r.sensor3}</td>
+        <td>${r.time}</td>
+        </tr>`;
+    });
+    document.getElementById("data").innerHTML = html;
+}
 
-    if(currentData.length === 0) return;
+// GRAPH
+function drawGraph(data){
+    let labels = data.map(r => r.id);
+    let s1 = data.map(r => r.sensor1);
+    let s2 = data.map(r => r.sensor2);
+    let s3 = data.map(r => r.sensor3);
 
-    let labels = currentData.map(d => formatTime(d.timestamp));
-    let s1 = currentData.map(d => d.sensor1);
-    let s2 = currentData.map(d => d.sensor2);
-    let s3 = currentData.map(d => d.sensor3);
+    if(chart) chart.destroy();
 
-    let ctx = document.getElementById("myChart").getContext("2d");
-
-    if(window.chart) window.chart.destroy();
-
-    let type = document.getElementById("chartType").value;
-
-    window.chart = new Chart(ctx, {
-        type: type,
+    chart = new Chart(document.getElementById("chart"), {
+        type: 'line',
         data: {
             labels: labels,
             datasets: [
-                { label: "Sensor 1", data: s1 },
-                { label: "Sensor 2", data: s2 },
-                { label: "Sensor 3", data: s3 }
+                {label:"S1", data:s1},
+                {label:"S2", data:s2},
+                {label:"S3", data:s3}
             ]
         }
     });
 }
 
-// -------- LOAD SD DATA --------
-async function loadAll(){
+// SEARCH ID
+function searchByID(){
 
-    autoRefresh = false;
-    viewMode = "sd";
+    mode = "search";
 
-    let res = await fetch('/data_all');
-    let data = await res.json();
+    let from = parseInt(idFrom.value);
+    let to = parseInt(idTo.value);
 
-    currentData = data;
-    drawChart();
+    filteredData = fullData.filter(r => r.id >= from && r.id <= to);
+    displayData(filteredData);
 
-    alert("Showing FULL SD data. Click RESET VIEW for live data.");
+    status.innerText = "Search (ID)";
 }
 
-// -------- SEARCH --------
-async function search(){
+// SEARCH DATE
+function searchByDate(){
 
-    autoRefresh = false;
-    viewMode = "search";
+    mode = "search";
 
-    let start = document.getElementById("start").value;
-    let end = document.getElementById("end").value;
+    let start = startDate.value;
+    let end = endDate.value;
 
-    let res = await fetch('/search', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({start, end})
+    filteredData = fullData.filter(r=>{
+        let d = r.time.substring(0,10);
+        return d >= start && d <= end;
     });
 
-    let data = await res.json();
+    displayData(filteredData);
 
-    currentData = data;
-    drawChart();
-
-    alert("Showing SEARCH result. Click RESET VIEW for live data.");
+    status.innerText = "Search (Date)";
 }
 
-// -------- RESET VIEW --------
-function resetView(){
-
-    viewMode = "live";
-    autoRefresh = true;
-
-    currentData = [];
-
-    loadData();
-
-    alert("Now showing LIVE data");
+// SHOW ALL
+function showAll(){
+    mode = "search";
+    filteredData = fullData;
+    displayData(fullData);
+    status.innerText = "Showing All (Frozen)";
 }
 
-// -------- DOWNLOAD --------
-function downloadCSV(){
+// GRAPH BUTTON
+function showGraph(){
+    drawGraph(filteredData);
+}
 
-    if(currentData.length === 0){
-        alert("No data");
+// COMMAND
+async function runCommand(){
+
+    mode = "search"; // freeze
+
+    let cmd = document.getElementById("cmd").value;
+
+    if(!cmd){
+        alert("Enter command");
         return;
     }
 
-    let csv = "ID,Sensor1,Sensor2,Sensor3,Timestamp\n";
+    let res = await fetch('/sendcmd?cmd=' + cmd);
+    let text = await res.text();
 
-    currentData.forEach(r => {
-        csv += `${r.id},${r.sensor1},${r.sensor2},${r.sensor3},${r.timestamp}\n`;
-    });
+    document.getElementById("cmdResult").innerText = text;
 
-    let blob = new Blob([csv], { type: "text/csv" });
-    let url = URL.createObjectURL(blob);
-
-    let a = document.createElement("a");
-    a.href = url;
-    a.download = "sensor_data.csv";
-    a.click();
+    status.innerText = "Command Executed (Frozen)";
 }
 
-// -------- STATUS --------
-async function status(){
+// SYNC SD
+async function syncSD(){
 
-    let res = await fetch('/status');
-    let data = await res.json();
+    mode = "sd";
 
-    document.getElementById("status").innerText =
-        (data.connected ? "Status: Connected" : "Status: Disconnected")
-        + " | Mode: " + viewMode;
+    status.innerText = "Sync in progress...";
+
+    await fetch('/sendcmd?cmd=SYNC');
+
+    setTimeout(async ()=>{
+        await showFullData();
+        status.innerText = "Full SD Data Loaded";
+    },15000);
 }
 
-// -------- CONTROL --------
-function start(){ autoRefresh = true; viewMode="live"; }
-function stop(){ autoRefresh = false; }
+// RESET (MAIN FIX)
+async function resetView(){
 
-// -------- AUTO REFRESH --------
-setInterval(loadData, 5000);
-setInterval(status, 3000);
+    mode = "live";
 
-window.onload = function(){
-    loadData();
-    status();
-};
+    await fetch('/api/reset');
+
+    fullData = [];
+    filteredData = [];
+
+    await loadData();
+
+    status.innerText = "Live View";
+}
+
+// FULL VIEW
+async function showFullData(){
+
+    mode = "sd";
+
+    await fetch('/api/fullview');
+    let res = await fetch('/api/all');
+
+    fullData = await res.json();
+    filteredData = fullData;
+
+    displayData(fullData);
+
+    status.innerText = "Full Data View";
+}
+
+// BASIC
+function start(){ fetch('/start'); }
+function stop(){ fetch('/stop'); }
+function downloadCSV(){ window.location.href="/download"; }
+
+// STATUS
+async function checkStatus(){
+    try{
+        let res = await fetch('/status');
+        let data = await res.json();
+
+        document.getElementById("status").innerText =
+            data.status + " | Mode: " + mode;
+
+    }catch{
+        document.getElementById("status").innerText = "Checking";
+    }
+}
+
+// AUTO REFRESH ONLY FOR LIVE
+setInterval(loadData,5000);
+setInterval(checkStatus,5000);
+
+loadData();
+checkStatus();
 
 </script>
 
