@@ -46,8 +46,8 @@ ID To: <input type="number" id="idTo">
 
 <br><br>
 
-Start Date: <input type="date" id="startDate">
-End Date: <input type="date" id="endDate">
+Start Date: <input type="datetime-local" id="startDate">
+End Date: <input type="datetime-local" id="endDate">
 <button onclick="searchByDate()">Search Date</button>
 
 <br>
@@ -143,7 +143,7 @@ function searchByID(){
 }
 
 // SEARCH DATE
-function searchByDate(){
+    function searchByDate(){
 
     mode = "search";
 
@@ -155,14 +155,17 @@ function searchByDate(){
         return;
     }
 
+    // Convert input to match SD format
+    let startTime = start.replace("T"," ") + ":00";
+    let endTime   = end.replace("T"," ") + ":59";
+
     filteredData = fullData.filter(r=>{
-        let recordTime = r.time.replace(" ", "T"); // convert to datetime format
-        return recordTime >= start && recordTime <= end;
+        return r.time >= startTime && r.time <= endTime;
     });
 
     displayData(filteredData);
 
-    status.innerText = "Search (Date & Time)";
+    status.innerText = "Search (Date + Time)";
 }
 // SHOW ALL
 function showAll(){
